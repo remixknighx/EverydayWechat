@@ -115,7 +115,6 @@ def init_wechat():
             print('自动回复中的群组名称『{}』有误。'.format(group_name))
 
 
-
 def init_alarm():
     """ 初始化定时提醒 """
     alarm_info = get_yaml().get('alarm_info', None)
@@ -147,7 +146,7 @@ def init_alarm():
                       minute=minute, misfire_grace_time=15 * 60)
 
     # 每隔 30 秒发送一条数据用于测试。
-    # scheduler.add_job(send_alarm_msg, 'interval', seconds=30)
+    scheduler.add_job(send_alarm_msg, 'interval', seconds=60)
 
     print('已开启定时发送提醒功能...')
     scheduler.start()
@@ -208,12 +207,9 @@ def send_alarm_msg():
     for gf in conf.get('girlfriend_infos'):
         dictum = get_dictum_info(gf.get('dictum_channel'))
         weather = get_weather_info(gf.get('city_name'))
-        diff_time = get_diff_time(gf.get('start_date'))
-        sweet_words = gf.get('sweet_words')
         horoscope = get_xzw_info(gf.get("birthday"))
 
-        send_msg = '\n'.join(x for x in [weather, dictum, diff_time, sweet_words, horoscope] if x)
-        print(send_msg)
+        send_msg = '\n'.join(x for x in [weather, dictum, horoscope] if x)
 
         if not send_msg or not is_online(): continue
         # 给微信好友发信息
