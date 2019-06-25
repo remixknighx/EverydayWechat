@@ -20,6 +20,7 @@ from everyday_wechat.utils.data_collection import (
 )
 
 reply_userNames = []
+reply_groupNames = []
 FILEHELPER_MARK = ['文件传输助手', 'filehelper']  # 文件传输助手标识
 FILEHELPER = 'filehelper'
 
@@ -100,6 +101,20 @@ def init_wechat():
             print('自动回复中的好友昵称『{}』有误。'.format(name))
     # print(reply_userNames)
 
+    # 加载自动回复群消息
+    auto_reply_group_conf = get_yaml().get('auto_reply_group_conf', None)
+    if not auto_reply_group_conf: return
+    is_open = auto_reply_group_conf.get('is_open', False)
+    if not is_open: return
+    group_names = auto_reply_group_conf.get('group_names')
+    for group_name in group_names:
+        if group_name and get_group(group_name):
+            print('添加自动回复群组『{}』成功。'.format(group_name))
+            reply_groupNames.append(group_name)
+        else:
+            print('自动回复中的群组名称『{}』有误。'.format(group_name))
+
+
 
 def init_alarm():
     """ 初始化定时提醒 """
@@ -160,6 +175,28 @@ def text_reply(msg):
                 print('回复{}：{}\n'.format(nickName, reply_text))
             else:
                 print('自动回复失败\n'.format(receive_text))
+    except Exception as e:
+        print(str(e))
+
+
+@itchat.msg_register(TEXT, isGroupChat=True)
+def group_text_reply(msg):
+    """ 监听群消息，用于自动回复 """
+    try:
+        group_name = msg['User']['NickName']
+        if group_name in reply_groupNames:
+            if not msg['IsAt']:
+                return
+            reply_text = get_bot_info(msg.Text, group_name)  # 获取自动回复
+            if reply_text:  # 如内容不为空，回复消息
+                itchat.send(reply_text, toUserName=msg['User']['UserName'])
+                print('回复{}：{}\n'.format(group_name, reply_text))
+            else:
+                print('自动回复失败\n'.format(msg.Text))
+
+        else:
+            return
+
     except Exception as e:
         print(str(e))
 
