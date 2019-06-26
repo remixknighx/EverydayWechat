@@ -19,6 +19,7 @@ from everyday_wechat.utils.data_collection import (
     get_xzw_info
 )
 
+auto_reply = True
 reply_userNames = []
 reply_groupNames = []
 FILEHELPER_MARK = ['文件传输助手', 'filehelper']  # 文件传输助手标识
@@ -146,8 +147,7 @@ def init_alarm():
                       minute=minute, misfire_grace_time=15 * 60)
 
     # 每隔 30 秒发送一条数据用于测试。
-    scheduler.add_job(send_alarm_msg, 'interval', seconds=60)
-
+    # scheduler.add_job(send_alarm_msg, 'interval', seconds=60)
     print('已开启定时发送提醒功能...')
     scheduler.start()
 
@@ -165,34 +165,54 @@ def text_reply(msg):
             receive_text = msg.text  # 好友发送来的消息内容
             # 好友叫啥
             nickName = FILEHELPER if uuid == FILEHELPER else msg.user.nickName
-            print('\n{}发来信息：{}'.format(nickName, receive_text))
-            reply_text = get_bot_info(receive_text, uuid)  # 获取自动回复
-            time.sleep(random.randint(0, 2))  # 休眠一秒，保安全。想更快的，可以直接注释。
-            if reply_text:  # 如内容不为空，回复消息
-                reply_text = reply_text if not uuid == FILEHELPER else '机器人回复：' + reply_text
-                itchat.send(reply_text, toUserName=uuid)
-                print('回复{}：{}\n'.format(nickName, reply_text))
+            # 申明auto_reply为全局变量
+            global auto_reply
+            if uuid == FILEHELPER:
+                if receive_text == '打开':
+                    auto_reply = True
+                    itchat.send('自动回复已打开', toUserName=uuid)
+                elif receive_text == '关闭':
+                    auto_reply = False
+                    itchat.send('自动回复已关闭', toUserName=uuid)
+                else:
+                    auto_reply_text(nickName=nickName, uuid=uuid, receive_text=receive_text)
             else:
-                print('自动回复失败\n'.format(receive_text))
+                if auto_reply:
+                    auto_reply_text(nickName=nickName, uuid=uuid, receive_text=receive_text)
+
     except Exception as e:
         print(str(e))
+
+
+def auto_reply_text(nickName, receive_text, uuid):
+    reply_text = get_bot_info(receive_text, uuid)  # 获取自动回复
+    if reply_text:  # 如内容不为空，回复消息
+        reply_text = reply_text if not uuid == FILEHELPER else '机器人回复：' + reply_text
+        itchat.send(reply_text, toUserName=uuid)
+        # print('回复{}：{}\n'.format(nickName, reply_text))
+    else:
+        print('自动回复失败\n'.format(receive_text))
 
 
 @itchat.msg_register(TEXT, isGroupChat=True)
 def group_text_reply(msg):
     """ 监听群消息，用于自动回复 """
     try:
+        # 自动回复已关闭
+        if not auto_reply:
+            print('自动回复已关闭')
+            return
+
         group_name = msg['User']['NickName']
         if group_name in reply_groupNames:
-            if not msg['IsAt']:
-                return
+            # if not msg['IsAt']:
+            #     return
             reply_text = get_bot_info(msg.Text, group_name)  # 获取自动回复
             if reply_text:  # 如内容不为空，回复消息
                 itchat.send(reply_text, toUserName=msg['User']['UserName'])
                 print('回复{}：{}\n'.format(group_name, reply_text))
             else:
                 print('自动回复失败\n'.format(msg.Text))
-
         else:
             return
 
@@ -248,7 +268,6 @@ def set_system_notice(text):
 
 def exit_msg():
     set_system_notice('项目已断开连接')
-
 
 
 def get_group(gruop_name, update=False):
